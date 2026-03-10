@@ -1,444 +1,89 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, Music, Mic, Clock, PlusCircle, Copy, Check, Video, Wand2, Image as ImageIcon, X, PlayCircle, Download, Focus } from 'lucide-react';
-
-export default function App() {
-  const [subject, setSubject] = useState('');
-  const [camera, setCamera] = useState('');
-  const [music, setMusic] = useState('');
-  const [voice, setVoice] = useState('');
-  const [duration, setDuration] = useState('6');
-  const [extend, setExtend] = useState(false);
-  const [singleVideo, setSingleVideo] = useState(false);
-  const [zoomFaceEnd, setZoomFaceEnd] = useState(false);
-  const [imagePreview, setImagePreview] = useState(null);
-  const [isContinuity, setIsContinuity] = useState(false);
-  const [generatedPrompt, setGeneratedPrompt] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  // Opções de seleção
-  const cameraOptions = [
-    "Nenhuma específica",
-    "Cinematográfica 4K",
-    "Visão de Drone (Aérea)",
-    "Câmera na mão (Handheld)",
-    "Macro (Super close-up)",
-    "Visão em Primeira Pessoa (FPV)",
-    "Câmera Lenta (Slow Motion)",
-    "Time-lapse",
-    "Panorâmica (Panning)",
-    "Zoom in / Zoom out",
-    "Plano Sequência (Tracking Shot)",
-    "Ângulo Baixo (Low Angle)",
-    "Ângulo Alto (High Angle)",
-    "Olho de Peixe (Fisheye)",
-    "Câmera de Segurança (CCTV)",
-    "Estilo GoPro (Ação)"
-  ];
-
-  const musicOptions = [
-    "Nenhuma",
-    "Épica / Orquestral",
-    "Lo-Fi / Relaxante",
-    "Eletrônica / Upbeat",
-    "Suspense / Tensa",
-    "Acústica / Emocional"
-  ];
-
-  const voiceOptions = [
-    "Nenhuma",
-    "Voz masculina profunda (Estilo trailer)",
-    "Voz feminina suave",
-    "Voz de documentário (Estilo BBC)",
-    "Voz robótica / IA",
-    "Voz infantil"
-  ];
-
-  const gerarPrompt = () => {
-    if (!subject.trim() && !imagePreview) {
-      setGeneratedPrompt('Digite a ideia principal ou envie uma imagem/vídeo para começar a gerar o prompt.');
-      return;
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Prompts: Grok Video</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* Estilos extras para os botões e toggles */
+    .toggle-checkbox:checked {
+      right: 0;
+      border-color: #68D391;
     }
-
-    let partes = [];
-
-    if (imagePreview) {
-      if (isContinuity) {
-        partes.push(`[Usar imagem anexada (último frame) como base para continuar a cena do vídeo anterior].`);
-      } else {
-        partes.push(`[Usar imagem anexada como referência inicial]`);
-      }
+    .toggle-checkbox:checked + .toggle-label {
+      background-color: #2563EB;
     }
-
-    if (subject.trim()) {
-      if (isContinuity) {
-        partes.push(`Ação da continuidade: ${subject.trim()}.`);
-      } else {
-        partes.push(`Imagine um vídeo: ${subject.trim()}.`);
-      }
-    } else {
-      if (isContinuity) {
-        partes.push(`Dê continuidade fluida à cena usando o frame anexado.`);
-      } else {
-        partes.push(`Anime esta imagem.`);
-      }
+    .toggle-checkbox:checked + .toggle-label .toggle-circle {
+      transform: translateX(100%);
     }
-
-    if (camera && camera !== "Nenhuma específica") {
-      partes.push(`Estilo de filmagem: ${camera}.`);
-    }
-
-    let audioParts = [];
-    if (music && music !== "Nenhuma") audioParts.push(`trilha sonora ${music.toLowerCase()}`);
-    if (voice && voice !== "Nenhuma") audioParts.push(`narração com ${voice.toLowerCase()}`);
+  </style>
+</head>
+<body class="min-h-screen bg-neutral-900 text-neutral-100 p-4 md:p-8 font-sans">
+  <div class="max-w-3xl mx-auto space-y-6">
     
-    if (audioParts.length > 0) {
-      partes.push(`Áudio: ${audioParts.join(' e ')}.`);
-    }
-
-    partes.push(`Duração exata: ${duration} segundos.`);
-
-    if (extend) {
-      partes.push(`--extend`); 
-    }
-
-    if (singleVideo) {
-      partes.push(`Gerar apenas 1 vídeo (sem variações extras).`);
-    }
-
-    if (zoomFaceEnd) {
-      partes.push(`Terminar o último frame com um zoom próximo ao rosto do personagem principal para manter a fidelidade na próxima cena.`);
-    }
-
-    setGeneratedPrompt(partes.join(' '));
-  };
-
-  // Atualiza o prompt sempre que uma opção muda
-  useEffect(() => {
-    gerarPrompt();
-  }, [subject, camera, music, voice, duration, extend, singleVideo, zoomFaceEnd, imagePreview, isContinuity]);
-
-  const handleVideoUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const url = URL.createObjectURL(file);
-    const video = document.createElement('video');
-    video.src = url;
-    video.muted = true;
-    video.playsInline = true;
-
-    video.addEventListener('loadedmetadata', () => {
-      // Pula para os últimos 0.1 segundos do vídeo para capturar o frame final
-      video.currentTime = Math.max(0, video.duration - 0.1);
-    });
-
-    video.addEventListener('seeked', () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      setImagePreview(canvas.toDataURL('image/jpeg'));
-      setIsContinuity(true);
-      URL.revokeObjectURL(url);
-    });
-  };
-
-  const copiarParaAreaDeTransferencia = async () => {
-    if (!generatedPrompt || generatedPrompt.includes('começar a gerar o prompt')) return;
-    
-    try {
-      await navigator.clipboard.writeText(generatedPrompt);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      // Fallback
-      const textArea = document.createElement("textarea");
-      textArea.value = generatedPrompt;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const handleDownloadImage = () => {
-    if (!imagePreview) return;
-    const link = document.createElement('a');
-    link.href = imagePreview;
-    link.download = isContinuity ? 'ultimo-frame-grok.jpg' : 'referencia-grok.jpg';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  return (
-    <div className="min-h-screen bg-neutral-900 text-neutral-100 p-4 md:p-8 font-sans">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        {/* Cabeçalho */}
-        <div className="flex items-center space-x-3 pb-4 border-b border-neutral-800">
-          <Wand2 className="w-8 h-8 text-blue-500" />
-          <h1 className="text-2xl font-bold">Gerador de Prompts: Grok Video</h1>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Coluna Esquerda: Controles */}
-          <div className="space-y-5 bg-neutral-800 p-5 rounded-xl border border-neutral-700">
-            
-            {/* Ideia Principal */}
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                <Video className="w-4 h-4" />
-                <span>Ideia Principal do Vídeo</span>
-              </label>
-              <textarea
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="Ex: Um cachorro correndo em um parque futurista cheio de luzes neon..."
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none h-24"
-              />
-            </div>
-
-            {/* Upload de Imagem de Referência ou Vídeo */}
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                <ImageIcon className="w-4 h-4" />
-                <span>Referência: Imagem ou Vídeo (Opcional)</span>
-              </label>
-              {!imagePreview ? (
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="flex items-center justify-center w-full h-20 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-neutral-800/50 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-2 text-neutral-400">
-                      <ImageIcon className="w-5 h-5 mb-1" />
-                      <span className="text-xs">Enviar Foto</span>
-                    </div>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setImagePreview(reader.result);
-                            setIsContinuity(false);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }} 
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-center w-full h-20 border-2 border-dashed border-neutral-700 rounded-lg cursor-pointer hover:border-purple-500 hover:bg-neutral-800/50 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-2 text-neutral-400 text-center">
-                      <Video className="w-5 h-5 mb-1" />
-                      <span className="text-xs">Continuar Vídeo<br/><span className="text-[10px] opacity-70">(Extrai 1º frame)</span></span>
-                    </div>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept="video/*" 
-                      onChange={handleVideoUpload} 
-                    />
-                  </label>
-                </div>
-              ) : (
-                <div className="relative w-full h-24 bg-neutral-900 rounded-lg border border-neutral-700 p-2 flex items-center space-x-4">
-                  <img src={imagePreview} alt="Preview" className="h-full w-auto object-cover rounded-md border border-neutral-800" />
-                  <div className="flex-1 text-sm text-neutral-300 truncate">
-                    {isContinuity ? "Último frame extraído!" : "Imagem adicionada ao prompt!"}
-                  </div>
-                  <div className="flex items-center">
-                    <button onClick={handleDownloadImage} className="p-2 text-neutral-400 hover:text-blue-400 transition-colors" title="Salvar Imagem">
-                      <Download className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => { setImagePreview(null); setIsContinuity(false); }} className="p-2 text-neutral-400 hover:text-red-400 transition-colors" title="Remover Imagem">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Câmera */}
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                <Camera className="w-4 h-4" />
-                <span>Estilo de Câmera</span>
-              </label>
-              <select
-                value={camera}
-                onChange={(e) => setCamera(e.target.value)}
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              >
-                {cameraOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-            </div>
-
-            {/* Música e Voz */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                  <Music className="w-4 h-4" />
-                  <span>Música</span>
-                </label>
-                <select
-                  value={music}
-                  onChange={(e) => setMusic(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  {musicOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                  <Mic className="w-4 h-4" />
-                  <span>Narração (Voz)</span>
-                </label>
-                <select
-                  value={voice}
-                  onChange={(e) => setVoice(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  {voiceOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Tempo e Opções Extras */}
-            <div className="space-y-4 pt-4 border-t border-neutral-700">
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                  <Clock className="w-4 h-4" />
-                  <span>Duração do Vídeo</span>
-                </label>
-                <div className="flex bg-neutral-900 rounded-lg border border-neutral-700 p-1">
-                  <button
-                    onClick={() => setDuration('6')}
-                    className={`flex-1 py-1.5 text-sm rounded-md transition-colors ${duration === '6' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
-                  >
-                    6 Segundos
-                  </button>
-                  <button
-                    onClick={() => setDuration('10')}
-                    className={`flex-1 py-1.5 text-sm rounded-md transition-colors ${duration === '10' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
-                  >
-                    10 Segundos
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4 pt-2">
-                {/* Toggle Extender */}
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={extend}
-                      onChange={(e) => setExtend(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-10 h-6 bg-neutral-900 border border-neutral-700 rounded-full transition-colors ${extend ? 'bg-blue-600 border-blue-600' : ''}`}></div>
-                    <div className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${extend ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Extender Vídeo</span>
-                  </div>
-                </label>
-
-                {/* Toggle 1 Vídeo Apenas */}
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={singleVideo}
-                      onChange={(e) => setSingleVideo(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-10 h-6 bg-neutral-900 border border-neutral-700 rounded-full transition-colors ${singleVideo ? 'bg-blue-600 border-blue-600' : ''}`}></div>
-                    <div className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${singleVideo ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
-                    <PlayCircle className="w-4 h-4" />
-                    <span>Apenas 1 Vídeo</span>
-                  </div>
-                </label>
-
-                {/* Toggle Zoom no Rosto Final */}
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={zoomFaceEnd}
-                      onChange={(e) => setZoomFaceEnd(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-10 h-6 bg-neutral-900 border border-neutral-700 rounded-full transition-colors ${zoomFaceEnd ? 'bg-blue-600 border-blue-600' : ''}`}></div>
-                    <div className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${zoomFaceEnd ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
-                    <Focus className="w-4 h-4" />
-                    <span>Zoom no Rosto no Final</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Coluna Direita: Resultado */}
-          <div className="space-y-4">
-            <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-5 h-full flex flex-col">
-              <h2 className="text-lg font-semibold text-blue-400 mb-4 flex items-center">
-                Prompt Gerado
-              </h2>
-              
-              <div className="flex-1 bg-neutral-900/50 rounded-lg p-4 border border-neutral-800 text-neutral-200 text-sm md:text-base leading-relaxed break-words whitespace-pre-wrap">
-                {generatedPrompt}
-              </div>
-
-              <button
-                onClick={copiarParaAreaDeTransferencia}
-                disabled={!subject.trim() && !imagePreview}
-                className={`mt-4 w-full flex items-center justify-center space-x-2 py-3 rounded-lg font-medium transition-all
-                  ${(!subject.trim() && !imagePreview) 
-                    ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' 
-                    : copied 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20'
-                  }`}
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    <span>Copiado!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    <span>Copiar Prompt</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
+    <div class="flex items-center space-x-3 pb-4 border-b border-neutral-800">
+      <i data-lucide="wand-2" class="w-8 h-8 text-blue-500"></i>
+      <h1 class="text-2xl font-bold">Gerador de Prompts: Grok Video</h1>
     </div>
-  );
-}
 
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="space-y-5 bg-neutral-800 p-5 rounded-xl border border-neutral-700">
+        
+        <div class="space-y-2">
+          <label class="flex items-center space-x-2 text-sm font-medium text-neutral-300">
+            <i data-lucide="video" class="w-4 h-4"></i>
+            <span>Ideia Principal do Vídeo</span>
+          </label>
+          <textarea id="subject" placeholder="Ex: Um cachorro correndo em um parque futurista cheio de luzes neon..." class="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none h-24"></textarea>
+        </div>
 
+        <div class="space-y-2">
+          <label class="flex items-center space-x-2 text-sm font-medium text-neutral-300">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span>Estilo de Câmera</span>
+          </label>
+          <select id="camera" class="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <option value="Nenhuma específica">Nenhuma específica</option>
+            <option value="Cinematográfica 4K">Cinematográfica 4K</option>
+            <option value="Visão de Drone (Aérea)">Visão de Drone (Aérea)</option>
+            <option value="Câmera na mão (Handheld)">Câmera na mão (Handheld)</option>
+            <option value="Macro (Super close-up)">Macro (Super close-up)</option>
+            <option value="Câmera Lenta (Slow Motion)">Câmera Lenta (Slow Motion)</option>
+          </select>
+        </div>
 
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <label class="flex items-center space-x-2 text-sm font-medium text-neutral-300">
+              <i data-lucide="music" class="w-4 h-4"></i>
+              <span>Música</span>
+            </label>
+            <select id="music" class="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="Nenhuma">Nenhuma</option>
+              <option value="Épica / Orquestral">Épica / Orquestral</option>
+              <option value="Lo-Fi / Relaxante">Lo-Fi / Relaxante</option>
+              <option value="Eletrônica / Upbeat">Eletrônica / Upbeat</option>
+            </select>
+          </div>
 
+          <div class="space-y-2">
+            <label class="flex items-center space-x-2 text-sm font-medium text-neutral-300">
+              <i data-lucide="mic" class="w-4 h-4"></i>
+              <span>Narração (Voz)</span>
+            </label>
+            <select id="voice" class="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="Nenhuma">Nenhuma</option>
+              <option value="Voz masculina profunda">Voz masculina profunda</option>
+              <option value="Voz feminina suave">Voz feminina suave</option>
+              <option value="Voz de documentário">Voz de documentário</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-4 pt-4 border-t border-neutral-700">
+          <div class="space-y-2">
             <label class="flex items-center space-x-2 text-sm font-medium text-neutral-300">
               <i data-lucide="clock" class="w-4 h-4"></i>
               <span>Duração do Vídeo</span>
@@ -551,192 +196,5 @@ export default function App() {
     });
   </script>
 </body>
-</html>
-blue-400 transition-colors" title="Salvar Imagem">
-                      <Download className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => { setImagePreview(null); setIsContinuity(false); }} className="p-2 text-neutral-400 hover:text-red-400 transition-colors" title="Remover Imagem">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Câmera */}
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                <Camera className="w-4 h-4" />
-                <span>Estilo de Câmera</span>
-              </label>
-              <select
-                value={camera}
-                onChange={(e) => setCamera(e.target.value)}
-                className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              >
-                {cameraOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-            </div>
-
-            {/* Música e Voz */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                  <Music className="w-4 h-4" />
-                  <span>Música</span>
-                </label>
-                <select
-                  value={music}
-                  onChange={(e) => setMusic(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  {musicOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                  <Mic className="w-4 h-4" />
-                  <span>Narração (Voz)</span>
-                </label>
-                <select
-                  value={voice}
-                  onChange={(e) => setVoice(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  {voiceOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Tempo e Opções Extras */}
-            <div className="space-y-4 pt-4 border-t border-neutral-700">
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2 text-sm font-medium text-neutral-300">
-                  <Clock className="w-4 h-4" />
-                  <span>Duração do Vídeo</span>
-                </label>
-                <div className="flex bg-neutral-900 rounded-lg border border-neutral-700 p-1">
-                  <button
-                    onClick={() => setDuration('6')}
-                    className={`flex-1 py-1.5 text-sm rounded-md transition-colors ${duration === '6' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
-                  >
-                    6 Segundos
-                  </button>
-                  <button
-                    onClick={() => setDuration('10')}
-                    className={`flex-1 py-1.5 text-sm rounded-md transition-colors ${duration === '10' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'}`}
-                  >
-                    10 Segundos
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4 pt-2">
-                {/* Toggle Extender */}
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={extend}
-                      onChange={(e) => setExtend(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-10 h-6 bg-neutral-900 border border-neutral-700 rounded-full transition-colors ${extend ? 'bg-blue-600 border-blue-600' : ''}`}></div>
-                    <div className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${extend ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
-                    <PlusCircle className="w-4 h-4" />
-                    <span>Extender Vídeo</span>
-                  </div>
-                </label>
-
-                {/* Toggle 1 Vídeo Apenas */}
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={singleVideo}
-                      onChange={(e) => setSingleVideo(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-10 h-6 bg-neutral-900 border border-neutral-700 rounded-full transition-colors ${singleVideo ? 'bg-blue-600 border-blue-600' : ''}`}></div>
-                    <div className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${singleVideo ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
-                    <PlayCircle className="w-4 h-4" />
-                    <span>Apenas 1 Vídeo</span>
-                  </div>
-                </label>
-
-                {/* Toggle Zoom no Rosto Final */}
-                <label className="flex items-center space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
-                    <input
-                      type="checkbox"
-                      checked={zoomFaceEnd}
-                      onChange={(e) => setZoomFaceEnd(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div className={`w-10 h-6 bg-neutral-900 border border-neutral-700 rounded-full transition-colors ${zoomFaceEnd ? 'bg-blue-600 border-blue-600' : ''}`}></div>
-                    <div className={`absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform ${zoomFaceEnd ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                  <div className="flex items-center space-x-1 text-sm font-medium text-neutral-300 group-hover:text-white transition-colors">
-                    <Focus className="w-4 h-4" />
-                    <span>Zoom no Rosto no Final</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Coluna Direita: Resultado */}
-          <div className="space-y-4">
-            <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-5 h-full flex flex-col">
-              <h2 className="text-lg font-semibold text-blue-400 mb-4 flex items-center">
-                Prompt Gerado
-              </h2>
-              
-              <div className="flex-1 bg-neutral-900/50 rounded-lg p-4 border border-neutral-800 text-neutral-200 text-sm md:text-base leading-relaxed break-words whitespace-pre-wrap">
-                {generatedPrompt}
-              </div>
-
-              <button
-                onClick={copiarParaAreaDeTransferencia}
-                disabled={!subject.trim() && !imagePreview}
-                className={`mt-4 w-full flex items-center justify-center space-x-2 py-3 rounded-lg font-medium transition-all
-                  ${(!subject.trim() && !imagePreview) 
-                    ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' 
-                    : copied 
-                      ? 'bg-green-600 hover:bg-green-700 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20'
-                  }`}
-              >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    <span>Copiado!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    <span>Copiar Prompt</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-}
-
-
-
-
-
-
-
+  </html>
+  
